@@ -1534,7 +1534,7 @@ function Invoke-LDAPSecurityCheck {
     }
     Pause
 }
-function Configure-MDIEnvironment {
+function Invoke-MDIEnvironment {
     <#
     .SYNOPSIS
         Presents a menu to run key DefenderForIdentity commands.
@@ -1706,9 +1706,6 @@ function Configure-MDIEnvironment {
             }
         }
     } while ($choice -ne '0')
-      Pause
-      Show-MainMenu
-      return
 }
 
 function Invoke-FineGrainedPasswordPolicyAudit { 
@@ -1890,7 +1887,7 @@ do {
         24 { Invoke-MoveFSMORoles }
         25 { Invoke-ProtectOUs }
         26 { Invoke-ADTimeFix }
-        27 { Configure-MDIEnvironment }
+        27 { Invoke-MDIEnvironment }
 
         28 {
             Write-Host "Exiting..."
