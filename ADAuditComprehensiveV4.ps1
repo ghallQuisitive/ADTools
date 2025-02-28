@@ -1581,6 +1581,7 @@ function Invoke-MDIEnvironment {
             Update-Module -Name $moduleName -ErrorAction SilentlyContinue
         } catch {
             Write-Warning "Could not update $moduleName $_"
+            Pause
         }
     }
 
@@ -1590,7 +1591,8 @@ function Invoke-MDIEnvironment {
         Write-Host "Imported module $moduleName successfully." -ForegroundColor Green
     }
     catch {
-        Write-Error "Failed to import $moduleName after installation: $_"
+        Write-Error "Failed to import $moduleName after installation $_"
+        Pause
         return
     }
 
@@ -1706,6 +1708,9 @@ function Invoke-MDIEnvironment {
             }
         }
     } while ($choice -ne '0')
+    Pause
+    Show-MainMenu
+    return
 }
 
 function Invoke-FineGrainedPasswordPolicyAudit { 
