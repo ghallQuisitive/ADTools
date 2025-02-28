@@ -1624,7 +1624,7 @@ function Invoke-MDIEnvironment {
                         Write-Host "No MDI configuration found or command returned nothing." -ForegroundColor Red
                     }
                 } catch {
-                    Write-Host "Error executing Get-MDIConfiguration: $_" -ForegroundColor Red
+                    Write-Host "Error executing Get-MDIConfiguration $_" -ForegroundColor Red
                 }
             }
             "2" {
@@ -1634,7 +1634,7 @@ function Invoke-MDIEnvironment {
                     try {
                         New-Item -ItemType Directory -Path $outputFolder | Out-Null
                     } catch {
-                        Write-Host "Could not create directory '$outputFolder': $_" -ForegroundColor Red
+                        Write-Host "Could not create directory '$outputFolder' $_" -ForegroundColor Red
                         break
                     }
                 }
@@ -1642,7 +1642,7 @@ function Invoke-MDIEnvironment {
                     New-MDIConfigurationReport -OutputFolder $outputFolder -HtmlReportName "MDI_Config.html" -JsonReportName "MDI_Config.json"
                     Write-Host "MDI configuration report generated at $outputFolder" -ForegroundColor Green
                 } catch {
-                    Write-Host "Error executing New-MDIConfigurationReport: $_" -ForegroundColor Red
+                    Write-Host "Error executing New-MDIConfigurationReport $_" -ForegroundColor Red
                 }
             }
             "3" {
@@ -1655,7 +1655,7 @@ function Invoke-MDIEnvironment {
                     New-MDIDSA -SamAccountName $svcAccount
                     Write-Host "Successfully created MDI DSA '$svcAccount'." -ForegroundColor Green
                 } catch {
-                    Write-Host "Error executing New-MDIDSA: $_" -ForegroundColor Red
+                    Write-Host "Error executing New-MDIDSA $_" -ForegroundColor Red
                 }
             }
             "4" {
@@ -1668,7 +1668,7 @@ function Invoke-MDIEnvironment {
                     Set-MDIConfiguration -Mode Domain -Configuration All -Identity $svcAccount
                     Write-Host "MDI Configuration set successfully for '$svcAccount'." -ForegroundColor Green
                 } catch {
-                    Write-Host "Error executing Set-MDIConfiguration: $_" -ForegroundColor Red
+                    Write-Host "Error executing Set-MDIConfiguration $_" -ForegroundColor Red
                 }
             }
             "5" {
@@ -1677,7 +1677,7 @@ function Invoke-MDIEnvironment {
                     $testResults = Test-MDIConfiguration -Mode Domain -Configuration All
                     $testResults | Format-Table -AutoSize
                 } catch {
-                    Write-Host "Error executing Test-MDIConfiguration: $_" -ForegroundColor Red
+                    Write-Host "Error executing Test-MDIConfiguration $_" -ForegroundColor Red
                 }
             }
             "6" {
@@ -1690,7 +1690,7 @@ function Invoke-MDIEnvironment {
                     $dsaTest = Test-MDIDSA -Identity $svcAccount -Detailed
                     $dsaTest | Format-List
                 } catch {
-                    Write-Host "Error executing Test-MDIDSA: $_" -ForegroundColor Red
+                    Write-Host "Error executing Test-MDIDSA $_" -ForegroundColor Red
                 }
             }
             "7" {
@@ -1699,7 +1699,7 @@ function Invoke-MDIEnvironment {
                     $apiResult = Test-MDISensorApiConnection
                     $apiResult | Format-List
                 } catch {
-                    Write-Host "Error executing Test-MDISensorApiConnection: $_" -ForegroundColor Red
+                    Write-Host "Error executing Test-MDISensorApiConnection $_" -ForegroundColor Red
                 }
             }
             "0" {
