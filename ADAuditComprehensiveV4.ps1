@@ -307,7 +307,7 @@ function Invoke-ReviewBaseSecurity {
 
     $result = [PSCustomObject]@{
         "Operating System"         = "$($osInfo.Caption), SP:$($osInfo.ServicePackMajorVersion).$($osInfo.ServicePackMinorVersion)"
-        "Last Boot Time"           = $osInfo.LastBootUpTime
+        "Last Boot "           = $osInfo.LastBootUp
         "Min Password Length"      = if ($domainPolicy) { $domainPolicy.MinPasswordLength } else { "N/A" }
         "Password History Count"   = if ($domainPolicy) { $domainPolicy.PasswordHistoryCount } else { "N/A" }
         "Max Password Age (Days)"  = if ($domainPolicy) { $domainPolicy.MaxPasswordAge.Days } else { "N/A" }
@@ -714,8 +714,8 @@ function Invoke-BestPracticeDNSSiteSubnetCheck {
             [string]$Message,
             [string]$Type = "Info"
         )
-        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        Write-Both "$timestamp [$Type] $Message"
+        $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        Write-Both "$stamp [$Type] $Message"
     }
 
     function Get-ReverseZoneName {
@@ -760,7 +760,7 @@ function Invoke-BestPracticeDNSSiteSubnetCheck {
         param(
             [string]$RemoteDC,
             [int]$IPsToTestPerSubnet = 3,
-            [int]$PingTimeout = 2,
+            [int]$Pingout = 2,
             [string]$OutputCsvPath = (Join-Path $OutPath 'SubnetConnectivityReport.csv')
         )
 
@@ -794,14 +794,14 @@ function Invoke-BestPracticeDNSSiteSubnetCheck {
                 if ($IPsToTest) {
                     foreach ($ip in $IPsToTest) {
                         try {
-                            $localPing = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue -TimeoutSeconds $PingTimeout
+                            $localPing = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue -outSeconds $Pingout
                             $remotePing = Invoke-Command -ComputerName $RemoteDC -ScriptBlock {
-                                param($ip,$PingTimeout)
-                                Test-Connection -ComputerName $ip -Count 1 -Quiet -TimeoutSeconds $PingTimeout
-                            } -ArgumentList $ip,$PingTimeout -ErrorAction SilentlyContinue
+                                param($ip,$Pingout)
+                                Test-Connection -ComputerName $ip -Count 1 -Quiet -outSeconds $Pingout
+                            } -ArgumentList $ip,$Pingout -ErrorAction SilentlyContinue
 
                             $results += [PSCustomObject]@{
-                                TimeStamp    = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+                                Stamp    = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
                                 Site         = $site
                                 Subnet       = $subnet.Range
                                 TestedIP     = $ip
@@ -1534,6 +1534,182 @@ function Invoke-LDAPSecurityCheck {
     }
     Pause
 }
+function Configure-MDIEnvironment {
+    <#
+    .SYNOPSIS
+        Presents a menu to run key DefenderForIdentity commands.
+
+    .DESCRIPTION
+        Ensures that the DefenderForIdentity module is installed or updated.
+        Then it displays a menu with options for running:
+            - Get-MDIConfiguration
+            - New-MDIConfigurationReport
+            - New-MDIDSA
+            - Set-MDIConfiguration -Mode Domain -Configuration All -Identity MDIgMSAsvc01 (or user-specified)
+            - Test-MDIConfiguration -Mode Domain -Configuration All
+            - Test-MDIDSA -Identity "MDIgMSAsvc01" (or user-specified) -Detailed
+            - Test-MDISensorApiConnection
+        Lets the user pick from a menu to execute each command, optionally
+        prompting for a service account name.
+
+    .EXAMPLE
+        PS> Configure-MDIEnvironment
+        # Displays the menu and prompts user for input.
+    #>
+
+    [CmdletBinding()]
+    param()
+
+    # 1. Ensure DefenderForIdentity module is installed or updated
+    $moduleName = "DefenderForIdentity"
+
+    Write-Host "Checking if $moduleName module is installed..."
+    $moduleCheck = Get-Module -ListAvailable -Name $moduleName | Select-Object -First 1
+    if (-not $moduleCheck) {
+        Write-Host "Module '$moduleName' not found. Installing..." -ForegroundColor Yellow
+        try {
+            Install-Module -Name $moduleName -Force -ErrorAction Stop
+        }
+        catch {
+            Write-Error "Failed to install $moduleName: $_"
+            return
+        }
+    }
+    else {
+        Write-Host "Module '$moduleName' found. Attempting to update to latest version..." -ForegroundColor Yellow
+        try {
+            Update-Module -Name $moduleName -ErrorAction SilentlyContinue
+        } catch {
+            Write-Warning "Could not update $moduleName: $_"
+        }
+    }
+
+    # Import the module
+    try {
+        Import-Module $moduleName -ErrorAction Stop
+        Write-Host "Imported module $moduleName successfully." -ForegroundColor Green
+    }
+    catch {
+        Write-Error "Failed to import $moduleName after installation: $_"
+        return
+    }
+
+    Write-Host "`nWelcome to the Microsoft Defender for Identity Configuration Menu." -ForegroundColor Cyan
+
+    do {
+        Write-Host "`nPlease choose from the following options:" -ForegroundColor Cyan
+        Write-Host "1) Get MDI Configuration"
+        Write-Host "2) Generate MDI Configuration Report"
+        Write-Host "3) Create New MDI DSA (Default: MDIgMSAsvc01)"
+        Write-Host "4) Set MDI Configuration (Domain, All) for MDIgMSAsvc01 or user choice"
+        Write-Host "5) Test MDI Configuration (Domain, All)"
+        Write-Host "6) Test MDI DSA (Default: MDIgMSAsvc01) -Detailed"
+        Write-Host "7) Test MDI Sensor API Connection"
+        Write-Host "0) Exit"
+
+        $choice = Read-Host "Enter your selection (0 to exit)"
+
+        switch ($choice) {
+            "1" {
+                Write-Host "`nRunning: Get-MDIConfiguration..." -ForegroundColor Yellow
+                try {
+                    $conf = Get-MDIConfiguration
+                    if ($conf) {
+                        $conf | Format-Table -AutoSize
+                    } else {
+                        Write-Host "No MDI configuration found or command returned nothing." -ForegroundColor Red
+                    }
+                } catch {
+                    Write-Host "Error executing Get-MDIConfiguration: $_" -ForegroundColor Red
+                }
+            }
+            "2" {
+                Write-Host "`nRunning: New-MDIConfigurationReport..." -ForegroundColor Yellow
+                $outputFolder = Read-Host "Specify the folder path where you'd like the MDI report generated"
+                if (-not (Test-Path $outputFolder)) {
+                    try {
+                        New-Item -ItemType Directory -Path $outputFolder | Out-Null
+                    } catch {
+                        Write-Host "Could not create directory '$outputFolder': $_" -ForegroundColor Red
+                        break
+                    }
+                }
+                try {
+                    New-MDIConfigurationReport -OutputFolder $outputFolder -HtmlReportName "MDI_Config.html" -JsonReportName "MDI_Config.json"
+                    Write-Host "MDI configuration report generated at $outputFolder" -ForegroundColor Green
+                } catch {
+                    Write-Host "Error executing New-MDIConfigurationReport: $_" -ForegroundColor Red
+                }
+            }
+            "3" {
+                Write-Host "`nRunning: New-MDIDSA..." -ForegroundColor Yellow
+                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
+                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
+                    $svcAccount = "MDIgMSAsvc01"
+                }
+                try {
+                    New-MDIDSA -SamAccountName $svcAccount
+                    Write-Host "Successfully created MDI DSA '$svcAccount'." -ForegroundColor Green
+                } catch {
+                    Write-Host "Error executing New-MDIDSA: $_" -ForegroundColor Red
+                }
+            }
+            "4" {
+                Write-Host "`nRunning: Set-MDIConfiguration -Mode Domain -Configuration All..." -ForegroundColor Yellow
+                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
+                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
+                    $svcAccount = "MDIgMSAsvc01"
+                }
+                try {
+                    Set-MDIConfiguration -Mode Domain -Configuration All -Identity $svcAccount
+                    Write-Host "MDI Configuration set successfully for '$svcAccount'." -ForegroundColor Green
+                } catch {
+                    Write-Host "Error executing Set-MDIConfiguration: $_" -ForegroundColor Red
+                }
+            }
+            "5" {
+                Write-Host "`nRunning: Test-MDIConfiguration -Mode Domain -Configuration All..." -ForegroundColor Yellow
+                try {
+                    $testResults = Test-MDIConfiguration -Mode Domain -Configuration All
+                    $testResults | Format-Table -AutoSize
+                } catch {
+                    Write-Host "Error executing Test-MDIConfiguration: $_" -ForegroundColor Red
+                }
+            }
+            "6" {
+                Write-Host "`nRunning: Test-MDIDSA -Detailed..." -ForegroundColor Yellow
+                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
+                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
+                    $svcAccount = "MDIgMSAsvc01"
+                }
+                try {
+                    $dsaTest = Test-MDIDSA -Identity $svcAccount -Detailed
+                    $dsaTest | Format-List
+                } catch {
+                    Write-Host "Error executing Test-MDIDSA: $_" -ForegroundColor Red
+                }
+            }
+            "7" {
+                Write-Host "`nRunning: Test-MDISensorApiConnection..." -ForegroundColor Yellow
+                try {
+                    $apiResult = Test-MDISensorApiConnection
+                    $apiResult | Format-List
+                } catch {
+                    Write-Host "Error executing Test-MDISensorApiConnection: $_" -ForegroundColor Red
+                }
+            }
+            "0" {
+                Write-Host "Exiting..." -ForegroundColor Cyan
+            }
+            default {
+                Write-Host "Invalid choice, please try again." -ForegroundColor Red
+            }
+        }
+    } while ($choice -ne "0")
+      Pause
+      Show-MainMenu
+      return
+}
 
 function Show-MainMenu {
     Clear-Host
@@ -1590,14 +1766,14 @@ function Show-MainMenu {
 
     Write-Host ""
 
-    # -- AD Maintenance / FSMO / OU (24-26) --
+    # -- Administration Scripts - These make changes so use carefully. (24-26) --
     Write-Host "==== AD Maintenance / FSMO / OU Protection ===="          -ForegroundColor Yellow
     Write-Host " 24) Move FSMO Roles"                                     -ForegroundColor Cyan
     Write-Host " 25) Protect OUs from Accidental Deletion"                -ForegroundColor Cyan
     Write-Host " 26) Fix AD Time Settings on Domain Controllers"          -ForegroundColor Cyan
-
+    Write-Host " 27) Prepare AD for MDI Deployment"                       -ForegroundColor Cyan
     Write-Host ""
-    Write-Host " 27) Exit"
+    Write-Host " 28) Exit"
     Write-Host ""
 }
 
@@ -1640,8 +1816,9 @@ do {
         24 { Invoke-MoveFSMORoles }
         25 { Invoke-ProtectOUs }
         26 { Invoke-ADTimeFix }
+        27 { Configure-MDIEnvironment }
 
-        27 {
+        28 {
             Write-Host "Exiting..."
             break
         }
@@ -1651,6 +1828,6 @@ do {
             Pause
         }
     }
-} while ($choice -ne 27)
+} while ($choice -ne 28)
 
-Write-Host "Done."
+Write-Host "Done, Thank you for using, we enjoy feedback and suggestions please drop us a line." -ForegroundColor Green
