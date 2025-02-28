@@ -1536,6 +1536,11 @@ function Invoke-LDAPSecurityCheck {
     }
     Pause
 }
+
+
+function Invoke-MDIEnvironment {
+    [CmdletBinding()]
+    param()
 function Show-MDISubmenu {
     do {
         Write-Host "`nPlease choose from the following MDI options:" -ForegroundColor Cyan
@@ -1561,7 +1566,7 @@ function Show-MDISubmenu {
                         Write-Host "No MDI configuration found." -ForegroundColor Red
                     }
                 } catch {
-                    Write-Host "Error executing Get-MDIConfiguration: $_" -ForegroundColor Red
+                    Write-Host "Error executing Get-MDIConfiguration $_" -ForegroundColor Red
                 }
             }
             "2" {
@@ -1571,7 +1576,7 @@ function Show-MDISubmenu {
                     try {
                         New-Item -ItemType Directory -Path $outputFolder | Out-Null
                     } catch {
-                        Write-Host "Could not create directory '$outputFolder': $_" -ForegroundColor Red
+                        Write-Host "Could not create directory '$outputFolder' $_" -ForegroundColor Red
                         break
                     }
                 }
@@ -1579,7 +1584,7 @@ function Show-MDISubmenu {
                     New-MDIConfigurationReport -OutputFolder $outputFolder -HtmlReportName "MDI_Config.html" -JsonReportName "MDI_Config.json"
                     Write-Host "MDI configuration report generated at $outputFolder" -ForegroundColor Green
                 } catch {
-                    Write-Host "Error executing New-MDIConfigurationReport: $_" -ForegroundColor Red
+                    Write-Host "Error executing New-MDIConfigurationReport $_" -ForegroundColor Red
                 }
             }
             "3" {
@@ -1592,7 +1597,7 @@ function Show-MDISubmenu {
                     New-MDIDSA -SamAccountName $svcAccount
                     Write-Host "Successfully created MDI DSA '$svcAccount'." -ForegroundColor Green
                 } catch {
-                    Write-Host "Error executing New-MDIDSA: $_" -ForegroundColor Red
+                    Write-Host "Error executing New-MDIDSA $_" -ForegroundColor Red
                 }
             }
             "4" {
@@ -1605,7 +1610,7 @@ function Show-MDISubmenu {
                     Set-MDIConfiguration -Mode Domain -Configuration All -Identity $svcAccount
                     Write-Host "MDI Configuration set successfully for '$svcAccount'." -ForegroundColor Green
                 } catch {
-                    Write-Host "Error executing Set-MDIConfiguration: $_" -ForegroundColor Red
+                    Write-Host "Error executing Set-MDIConfiguration $_" -ForegroundColor Red
                 }
             }
             "5" {
@@ -1614,7 +1619,7 @@ function Show-MDISubmenu {
                     $testResults = Test-MDIConfiguration -Mode Domain -Configuration All
                     $testResults | Format-Table -AutoSize
                 } catch {
-                    Write-Host "Error executing Test-MDIConfiguration: $_" -ForegroundColor Red
+                    Write-Host "Error executing Test-MDIConfiguration $_" -ForegroundColor Red
                 }
             }
             "6" {
@@ -1627,7 +1632,7 @@ function Show-MDISubmenu {
                     $dsaTest = Test-MDIDSA -Identity $svcAccount -Detailed
                     $dsaTest | Format-List
                 } catch {
-                    Write-Host "Error executing Test-MDIDSA: $_" -ForegroundColor Red
+                    Write-Host "Error executing Test-MDIDSA $_" -ForegroundColor Red
                 }
             }
             "7" {
@@ -1636,7 +1641,7 @@ function Show-MDISubmenu {
                     $apiResult = Test-MDISensorApiConnection
                     $apiResult | Format-List
                 } catch {
-                    Write-Host "Error executing Test-MDISensorApiConnection: $_" -ForegroundColor Red
+                    Write-Host "Error executing Test-MDISensorApiConnection $_" -ForegroundColor Red
                 }
             }
             "0" {
@@ -1648,11 +1653,6 @@ function Show-MDISubmenu {
         }
     } while ($choice -ne '0')
 }
-
-function Invoke-MDIEnvironment {
-    [CmdletBinding()]
-    param()
-
     # 1. Ensure DefenderForIdentity module is installed or updated
     $moduleName = "DefenderForIdentity"
 
@@ -1697,7 +1697,7 @@ function Invoke-MDIEnvironment {
     Show-MDISubmenu
 
     # Optionally, return to a higher-level menu or simply exit
-    return
+    #return
 }
 
 
