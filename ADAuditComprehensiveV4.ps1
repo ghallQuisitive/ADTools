@@ -1779,7 +1779,7 @@ function Show-MainMenu {
 
 do {
     Show-MainMenu
-    $choice = Read-Host "Enter selection (1-27)"
+    $choice = Read-Host "Enter selection (1-28)"
 
     switch ($choice) {
 
