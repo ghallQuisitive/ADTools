@@ -1661,10 +1661,12 @@ function Invoke-MDIEnvironment {
     if (-not $moduleCheck) {
         Write-Host "Module '$moduleName' not found. Installing..." -ForegroundColor Yellow
         try {
-            Install-Module -Name $moduleName -Force -ErrorAction Stop
+            Write-Host "Installing DefenderForIdentity Module" -ForegroundColor -Green
+            Install-Module -Name $moduleName -AllowClobber -Force -Verbose
         }
         catch {
             Write-Error "Failed to install $moduleName $_"
+            Pause
             return
         }
     }
