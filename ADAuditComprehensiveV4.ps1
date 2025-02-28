@@ -1571,7 +1571,7 @@ function Configure-MDIEnvironment {
             Install-Module -Name $moduleName -Force -ErrorAction Stop
         }
         catch {
-            Write-Error "Failed to install $moduleName: $_"
+            Write-Error "Failed to install $moduleName $_"
             return
         }
     }
@@ -1580,7 +1580,7 @@ function Configure-MDIEnvironment {
         try {
             Update-Module -Name $moduleName -ErrorAction SilentlyContinue
         } catch {
-            Write-Warning "Could not update $moduleName: $_"
+            Write-Warning "Could not update $moduleName $_"
         }
     }
 
