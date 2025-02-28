@@ -1705,7 +1705,7 @@ function Configure-MDIEnvironment {
                 Write-Host "Invalid choice, please try again." -ForegroundColor Red
             }
         }
-    } while ($choice -ne "0")
+    } while ($choice -ne '0')
       Pause
       Show-MainMenu
       return
