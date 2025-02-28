@@ -1805,52 +1805,49 @@ function Show-MainMenu {
     Write-Host "======================================================" -ForegroundColor Cyan
     Write-Host ""
 
-    # -- GPO & Policy Checks (1-6) --
+    # -- GPO & Policy Checks (1-7) --
     Write-Host "==== GPO & Policy Checks ====" -ForegroundColor Green
     Write-Host "  1) Scan GPOs for Unknown (Orphaned) Accounts"            -ForegroundColor Cyan
     Write-Host "  2) Scan GPOs for Password Policies"                      -ForegroundColor Cyan
-    Write-Host "  3) Scan Overlapping GPO Policy Settings Scan"            -ForegroundColor Cyan
-    Write-Host "  4) SYSVOL GPP cpassword Check (from ADAudit)"            -ForegroundColor Cyan
-    Write-Host "  5) Install and Launch GPOZaurr"                          -ForegroundColor Cyan
-    Write-Host "  6) Microsoft Policy Analyzer Setup and Ready"            -ForegroundColor Cyan
-
+    Write-Host "  3) Scan GPOs for FineGrained Password Policies"          -ForegroundColor Cyan
+    Write-Host "  4) Scan Overlapping GPO Policy Settings"                 -ForegroundColor Cyan
+    Write-Host "  5) SYSVOL GPP cpassword Check (from ADAudit)"            -ForegroundColor Cyan
+    Write-Host "  6) Install and Launch GPOZaurr"                          -ForegroundColor Cyan
+    Write-Host "  7) Microsoft Policy Analyzer Setup and Ready"            -ForegroundColor Cyan
     Write-Host ""
 
-    # -- Base Security & DC Health (7-19) --
-    Write-Host "==== Base Security & DC Health ===="                       -ForegroundColor Green
-    Write-Host "  7)  Review Base Security Settings"                       -ForegroundColor Cyan
-    Write-Host "  8)  Summarize DC Event Errors"                           -ForegroundColor Cyan
-    Write-Host "  9)  All DCs DCDiag Tests"                                -ForegroundColor Cyan
-    Write-Host " 10)  AD Forest Health Check"                              -ForegroundColor Cyan
-    Write-Host " 11)  DC Egress (WAN) IPs"                                 -ForegroundColor Cyan
-    Write-Host " 12)  LDAP/LDAPS Connectivity Check"                       -ForegroundColor Cyan
-    Write-Host " 13)  Best Practice DNS vs AD Sites/Subnets Check"         -ForegroundColor Cyan
-    Write-Host " 14)  LAPS Status Check (from ADAudit)"                    -ForegroundColor Cyan
-    Write-Host " 15)  OU Permissions Check (from ADAudit)"                 -ForegroundColor Cyan
-    Write-Host " 16)  SPN (Kerberoast) Check (from ADAudit)"               -ForegroundColor Cyan
-    Write-Host " 17)  AS-REP (DoesNotRequirePreAuth) Check (from ADAudit)" -ForegroundColor Cyan
-    Write-Host " 18)  DC Ownership Check (from ADAudit)"                   -ForegroundColor Cyan
-    Write-Host " 19)  LDAP Security Check (from ADAudit)"                  -ForegroundColor Cyan
-
+    # -- Base Security & DC Health (8-19) --
+    Write-Host "==== Base Security & DC Health ====" -ForegroundColor Green
+    Write-Host "  8)  Review Base Security Settings"                       -ForegroundColor Cyan
+    Write-Host "  9)  Summarize DC Event Errors"                           -ForegroundColor Cyan
+    Write-Host "  10) All DCs DCDiag Tests"                                -ForegroundColor Cyan
+    Write-Host "  11) AD Forest Health Check"                              -ForegroundColor Cyan
+    Write-Host "  12) DC Egress (WAN) IPs"                                 -ForegroundColor Cyan
+    Write-Host "  13) LDAP/LDAPS Connectivity Check"                       -ForegroundColor Cyan
+    Write-Host "  14) Best Practice DNS vs AD Sites/Subnets Check"         -ForegroundColor Cyan
+    Write-Host "  15) LAPS Status Check (from ADAudit)"                    -ForegroundColor Cyan
+    Write-Host "  16) OU Permissions Check (from ADAudit)"                 -ForegroundColor Cyan
+    Write-Host "  17) SPN (Kerberoast) Check (from ADAudit)"               -ForegroundColor Cyan
+    Write-Host "  18) AS-REP (DoesNotRequirePreAuth) Check (from ADAudit)" -ForegroundColor Cyan
+    Write-Host "  19) LDAP Security Check (from ADAudit)"                  -ForegroundColor Cyan
     Write-Host ""
 
     # -- BPA Scans & Discovery (20-23) --
-    Write-Host "==== BPA Scans & Discovery ===="                          -ForegroundColor Yellow
-    Write-Host " 20) DC Discovery Script (Hardware/Software/NIC Info)"    -ForegroundColor Cyan
-    Write-Host " 21) BPA Scan (Local) - AD Roles"                         -ForegroundColor Cyan
-    Write-Host " 22) BPA Scan (Remote) - AD Roles"                        -ForegroundColor Cyan
-    Write-Host " 23) AD Recon Quiet Audit from Member Server orDesktop (Red Team)"  -ForegroundColor Cyan
-
+    Write-Host "==== BPA Scans & Discovery ====" -ForegroundColor Yellow
+    Write-Host "  20) DC Discovery Script (Hardware/Software/NIC Info)"    -ForegroundColor Cyan
+    Write-Host "  21) BPA Scan (Local) - AD Roles"                         -ForegroundColor Cyan
+    Write-Host "  22) BPA Scan (Remote) - AD Roles"                        -ForegroundColor Cyan
+    Write-Host "  23) AD Recon Quiet Audit from Member Server or Desktop (Red Team)"  -ForegroundColor Cyan
     Write-Host ""
 
-    # -- Administration Scripts - These make changes so use carefully. (24-26) --
+    # -- Administration Scripts (24-27) --
     Write-Host "==== AD Maintenance / FSMO / OU Protection ===="          -ForegroundColor Yellow
-    Write-Host " 24) Move FSMO Roles"                                     -ForegroundColor Cyan
-    Write-Host " 25) Protect OUs from Accidental Deletion"                -ForegroundColor Cyan
-    Write-Host " 26) Fix AD Time Settings on Domain Controllers"          -ForegroundColor Cyan
-    Write-Host " 27) Prepare AD for MDI Deployment"                       -ForegroundColor Cyan
+    Write-Host "  24) Move FSMO Roles"                                     -ForegroundColor Cyan
+    Write-Host "  25) Protect OUs from Accidental Deletion"               -ForegroundColor Cyan
+    Write-Host "  26) Fix AD Time Settings on Domain Controllers"          -ForegroundColor Cyan
+    Write-Host "  27) Prepare AD for MDI Deployment"                       -ForegroundColor Cyan
     Write-Host ""
-    Write-Host " 28) Exit"
+    Write-Host "  28) Exit"
     Write-Host ""
 }
 
@@ -1860,27 +1857,27 @@ do {
 
     switch ($choice) {
 
-        # -- GPO & Policy Checks (1-6) --
+        # -- GPO & Policy Checks (1-7) --
         1 { Invoke-ScanGPOsUnknownAccounts }
         2 { Invoke-ScanGPOPasswordPolicies }
-        3 { Invoke-GPOPolicyOverlapScan }
-        4 { Invoke-SYSVOLGPPPasswordCheck }
-        5 { start-gpozaurr }  # ← New function
-        6 { Invoke-GPOBPASetup }  # ← New function
+        3 { Invoke-FineGrainedPasswordPolicyAudit }
+        4 { Invoke-GPOPolicyOverlapScan }
+        5 { Invoke-SYSVOLGPPPasswordCheck }
+        6 { start-gpozaurr }  
+        7 { Invoke-GPOBPASetup }  
 
-        # -- Base Security & DC Health (7-19) --
-        7  { Invoke-ReviewBaseSecurity }
-        8  { Invoke-DCEventErrorSummary }
-        9  { Invoke-AllDCDiagTests }
-        10 { Invoke-ForestHealthCheck }
-        11 { Invoke-GetDCEgressWANIPs }
-        12 { Invoke-LDAPLDAPSCheck }
-        13 { Invoke-BestPracticeDNSSiteSubnetCheck }
-        14 { Invoke-LAPSStatusCheck }
-        15 { Invoke-OUPermsCheck }
-        16 { Invoke-SPNsCheck }
-        17 { Invoke-ASREPCheck }
-        18 { Invoke-DCsOwnershipCheck }
+        # -- Base Security & DC Health (8-19) --
+        8  { Invoke-ReviewBaseSecurity }
+        9  { Invoke-DCEventErrorSummary }
+        10 { Invoke-AllDCDiagTests }
+        11 { Invoke-ForestHealthCheck }
+        12 { Invoke-GetDCEgressWANIPs }
+        13 { Invoke-LDAPLDAPSCheck }
+        14 { Invoke-BestPracticeDNSSiteSubnetCheck }
+        15 { Invoke-LAPSStatusCheck }
+        16 { Invoke-OUPermsCheck }
+        17 { Invoke-SPNsCheck }
+        18 { Invoke-ASREPCheck }
         19 { Invoke-LDAPSecurityCheck }
 
         # -- BPA Scans & Discovery (20-23) --
@@ -1889,7 +1886,7 @@ do {
         22 { Invoke-BPARemoteScan }
         23 { Invoke-QuietAuditRedTeam }
 
-        # -- AD Maintenance / FSMO / OU (24-26) --
+        # -- AD Maintenance / FSMO / OU (24-27) --
         24 { Invoke-MoveFSMORoles }
         25 { Invoke-ProtectOUs }
         26 { Invoke-ADTimeFix }
