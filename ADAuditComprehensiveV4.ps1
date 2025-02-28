@@ -1785,6 +1785,346 @@ Show-MainMenu
 return
 }
 
+function Invoke-FineGrainedPasswordPolicySetup {
+    <#
+    .SYNOPSIS
+        Creates either a single Fine-Grained Password Policy (1-tier) OR three FGPPs (3-tier) in Active Directory.
+        Additionally, it offers an interactive submenu so users can select the mode and whether to always link Domain Admins.
+    .DESCRIPTION
+        This script can set up:
+          (A) A **single** Fine-Grained Password Policy linked to one security group
+              and optionally also link it to Domain Admins.
+        **OR**
+          (B) A **3-tier** Fine-Grained Password Policy solution, each tier linked
+              to a different security group, plus optionally Domain Admins.
+
+        The script presents a submenu to guide the user, or you can pass parameters directly.
+
+        By default, the 3-tier approach creates:
+          1) HighSecurity_PrivilegedPolicy   (strictest)
+          2) StandardUser_ModeratePolicy     (moderate)
+          3) SpecialOrLowerSecurity_RelaxedPolicy  (most relaxed)
+
+        If you only want one policy, choose Single-Tier from the menu or pass -SingleTier.
+        If you also choose to link Domain Admins (and optionally Enterprise Admins), the script will
+        automatically assign that highest/single policy to those built-in groups.
+
+        Requirements:
+          - Must run under an account with privileges to manage Fine-Grained Password Policies (e.g. Domain Admin)
+          - ActiveDirectory PowerShell module must be installed and imported.
+    .EXAMPLE
+        # 1) Let the script guide you with the submenu:
+        Invoke-FineGrainedPasswordPolicySetup
+
+        # 2) Or specify parameters directly (skips submenu):
+        Invoke-FineGrainedPasswordPolicySetup -SingleTier -AlwaysLinkDomainAdmins
+
+        # 3) Customize policy names:
+        Invoke-FineGrainedPasswordPolicySetup -Tier1PolicyName "VIP_Strict" -Tier2PolicyName "Managers_Moderate" -Tier3PolicyName "AllOtherUsers_Relaxed" -AlwaysLinkDomainAdmins
+    #>
+
+    param(
+        [switch]
+        $SingleTier,
+
+        [switch]
+        $AlwaysLinkDomainAdmins,
+
+        [switch]
+        $AlwaysLinkEnterpriseAdmins,
+
+        [string]$SingleTierPolicyName = "SingleTierPolicy",
+
+        [string]$Tier1PolicyName = "HighSecurity_PrivilegedPolicy",
+        [string]$Tier2PolicyName = "StandardUser_ModeratePolicy",
+        [string]$Tier3PolicyName = "SpecialOrLowerSecurity_RelaxedPolicy"
+    )
+
+    # Ensure the Active Directory module is loaded
+    if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
+        Write-Warning "Active Directory PowerShell module not found. Please install RSAT-AD-PowerShell and try again."
+        return
+    }
+    Import-Module ActiveDirectory -ErrorAction Stop
+     if (-not (Get-Command Get-ADFineGrainedPasswordPolicy -ErrorAction SilentlyContinue)) {
+        Write-Both "The Get-ADFineGrainedPasswordPolicy command was not found. Please ensure the ActiveDirectory module is installed and imported."
+        Pause
+        Show-MainMenu
+        return
+    }
+    # Check if running as a user with Domain Admin or similar privileges
+    $inAdminGroup = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $inAdminGroup) {
+        Write-Warning "It's recommended to run this under an account with Domain Admin privileges to manage Fine-Grained Password Policies."
+        $continue = Read-Host "Continue anyway? (Y/N)"
+        if ($continue -notmatch '^(Y|y)$') {
+            Write-Host "Aborting."
+            return
+        }
+    }
+
+    # Helper function to Create or Update a Fine-Grained Password Policy
+    function Ensure-PasswordPolicy {
+        param(
+            [string]$PolicyName,
+            [int]$Precedence,
+            [int]$MinPasswordLength,
+            [int]$MaxPasswordAgeDays,
+            [int]$MinPasswordAgeDays,
+            [int]$PasswordHistoryCount,
+            [int]$LockoutThreshold,
+            [int]$LockoutDurationMins,
+            [int]$ObservationWindowMins,
+            [bool]$ComplexityEnabledBool,
+            [bool]$ReversibleEncEnabled
+        )
+        
+        # Check if policy already exists
+        $existingPolicy = Get-ADFineGrainedPasswordPolicy -Filter "Name -eq '$PolicyName'" -ErrorAction SilentlyContinue
+
+        if ($null -eq $existingPolicy) {
+            Write-Host "Creating new Fine-Grained Password Policy: $PolicyName" -ForegroundColor Cyan
+            try {
+                New-ADFineGrainedPasswordPolicy `
+                    -Name $PolicyName `
+                    -Precedence $Precedence `
+                    -ComplexityEnabled $ComplexityEnabledBool `
+                    -LockoutThreshold $LockoutThreshold `
+                    -LockoutDuration (New-TimeSpan -Minutes $LockoutDurationMins) `
+                    -LockoutObservationWindow (New-TimeSpan -Minutes $ObservationWindowMins) `
+                    -MaxPasswordAge (New-TimeSpan -Days $MaxPasswordAgeDays) `
+                    -MinPasswordAge (New-TimeSpan -Days $MinPasswordAgeDays) `
+                    -MinPasswordLength $MinPasswordLength `
+                    -PasswordHistoryCount $PasswordHistoryCount `
+                    -ReversibleEncryptionEnabled $ReversibleEncEnabled
+
+                Write-Host "Fine-Grained Password Policy '$PolicyName' created successfully." -ForegroundColor Green
+            }
+            catch {
+                Write-Error "Failed to create policy '$PolicyName': $_"
+            }
+        }
+        else {
+            Write-Host "Policy '$PolicyName' already exists. Updating its settings..." -ForegroundColor Cyan
+            try {
+                Set-ADFineGrainedPasswordPolicy `
+                    -Identity $PolicyName `
+                    -Precedence $Precedence `
+                    -ComplexityEnabled $ComplexityEnabledBool `
+                    -LockoutThreshold $LockoutThreshold `
+                    -LockoutDuration (New-TimeSpan -Minutes $LockoutDurationMins) `
+                    -LockoutObservationWindow (New-TimeSpan -Minutes $ObservationWindowMins) `
+                    -MaxPasswordAge (New-TimeSpan -Days $MaxPasswordAgeDays) `
+                    -MinPasswordAge (New-TimeSpan -Days $MinPasswordAgeDays) `
+                    -MinPasswordLength $MinPasswordLength `
+                    -PasswordHistoryCount $PasswordHistoryCount `
+                    -ReversibleEncryptionEnabled $ReversibleEncEnabled
+
+                Write-Host "Fine-Grained Password Policy '$PolicyName' updated successfully." -ForegroundColor Green
+            }
+            catch {
+                Write-Error "Failed to update policy '$PolicyName': $_"
+            }
+        }
+    }
+
+    # Helper function to link a policy to a group
+    function Link-PolicyToGroup {
+        param(
+            [string]$PolicyName,
+            [string]$GroupName
+        )
+        if ([string]::IsNullOrWhiteSpace($GroupName)) {
+            return
+        }
+        # Attempt to retrieve the group object
+        try {
+            $groupObj = Get-ADGroup -Identity $GroupName -ErrorAction Stop
+            Add-ADFineGrainedPasswordPolicySubject -Identity $PolicyName -Subjects $groupObj.DistinguishedName
+            Write-Host "Linked policy '$PolicyName' to group '$GroupName'." -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not link policy '$PolicyName' to group '$GroupName': $_"
+        }
+    }
+
+    ################################################################################
+    # Submenu logic - only if NO parameters are passed (and user didn't skip), or we want to always show.
+    ################################################################################
+
+    # Check if the user actually provided any parameter. If they did not, show a submenu.
+    # If they did, we skip the menu and just use the parameter values.
+
+    if ($PSBoundParameters.Count -eq 0) {
+        Write-Host "\n===========================" -ForegroundColor Cyan
+        Write-Host " Fine-Grained Password Policy Setup Menu" -ForegroundColor Cyan
+        Write-Host "===========================\n" -ForegroundColor Cyan
+
+        Write-Host "1) Single-Tier Policy" -ForegroundColor Yellow
+        Write-Host "2) Three-Tier Policies" -ForegroundColor Yellow
+        Write-Host "" # blank line
+        $menuChoice = Read-Host "Choose an option (1 or 2)"
+
+        switch ($menuChoice) {
+            "1" {
+                $SingleTier = $true
+            }
+            "2" {
+                $SingleTier = $false
+            }
+            default {
+                Write-Host "Invalid option. Defaulting to Three-Tier." -ForegroundColor Red
+                $SingleTier = $false
+            }
+        }
+
+        # Ask about Domain Admins linking
+        $daChoice = Read-Host "Would you like to ALWAYS link Domain Admins to the strictest policy? (Y/N)"
+        if ($daChoice -match '^(Y|y)$') {
+            $AlwaysLinkDomainAdmins = $true
+        } else {
+            $AlwaysLinkDomainAdmins = $false
+        }
+
+        # Optional question about Enterprise Admins linking
+        $eaChoice = Read-Host "Would you also like to link Enterprise Admins to the strictest policy? (Y/N)"
+        if ($eaChoice -match '^(Y|y)$') {
+            $AlwaysLinkEnterpriseAdmins = $true
+        } else {
+            $AlwaysLinkEnterpriseAdmins = $false
+        }
+    }
+
+    ################################################################################
+    # End of submenu logic - Now proceed with the actual script based on final parameter values.
+    ################################################################################
+
+    if ($SingleTier) {
+        # SINGLE-TIER LOGIC
+        Write-Host "\nRunning in SINGLE-TIER mode." -ForegroundColor Yellow
+        # Prompt for group name
+        $groupName = Read-Host "Enter the security group name for the single-tier policy"
+        
+        # Define recommended default settings for single-tier
+        $singleSettings = [PSCustomObject]@{
+            Name                        = $SingleTierPolicyName
+            Precedence                  = 10   # You can set any precedence here
+            MinPasswordLength           = 12   # Adjust defaults as desired
+            MaxPasswordAgeDays          = 45
+            MinPasswordAgeDays          = 1
+            PasswordHistoryCount        = 12
+            LockoutThreshold            = 5
+            LockoutDurationMins         = 30
+            ObservationWindowMins       = 30
+            ComplexityEnabledBool       = $true
+            ReversibleEncEnabled        = $false
+        }
+
+        # Create or update the single policy
+        Ensure-PasswordPolicy @singleSettings
+        Link-PolicyToGroup -PolicyName $singleSettings.Name -GroupName $groupName
+
+        # If we want to *always* link Domain Admins or Enterprise Admins to the single policy
+        if ($AlwaysLinkDomainAdmins) {
+            Write-Host "Also linking single-tier policy to built-in Domain Admins group." -ForegroundColor Magenta
+            Link-PolicyToGroup -PolicyName $singleSettings.Name -GroupName "Domain Admins"
+        }
+        if ($AlwaysLinkEnterpriseAdmins) {
+            Write-Host "Also linking single-tier policy to built-in Enterprise Admins group." -ForegroundColor Magenta
+            Link-PolicyToGroup -PolicyName $singleSettings.Name -GroupName "Enterprise Admins"
+        }
+
+        Write-Host "\nSingle-tier Fine-Grained Password Policy setup complete." -ForegroundColor Cyan
+    }
+    else {
+        # THREE-TIER LOGIC
+        Write-Host "\nRunning in THREE-TIER mode." -ForegroundColor Yellow
+        Write-Host "This script will set up 3-tier Fine-Grained Password Policies." -ForegroundColor Cyan
+
+        $tier1Group = Read-Host "Enter the security group name for High-Security/Privileged Tier"
+        $tier2Group = Read-Host "Enter the security group name for Standard-User Tier"
+        $tier3Group = Read-Host "Enter the security group name for Lower-Security or Special Tier"
+
+        # Define recommended default settings for each tier.
+        $tier1Settings = {
+            return [PSCustomObject]@{
+                Name                        = $Tier1PolicyName
+                Precedence                  = 10
+                MinPasswordLength           = 14
+                MaxPasswordAgeDays          = 30
+                MinPasswordAgeDays          = 1
+                PasswordHistoryCount        = 24
+                LockoutThreshold            = 5
+                LockoutDurationMins         = 30
+                ObservationWindowMins       = 30
+                ComplexityEnabledBool       = $true
+                ReversibleEncEnabled        = $false
+            }
+        }
+
+        $tier2Settings = {
+            return [PSCustomObject]@{
+                Name                        = $Tier2PolicyName
+                Precedence                  = 20
+                MinPasswordLength           = 12
+                MaxPasswordAgeDays          = 45
+                MinPasswordAgeDays          = 1
+                PasswordHistoryCount        = 12
+                LockoutThreshold            = 5
+                LockoutDurationMins         = 30
+                ObservationWindowMins       = 30
+                ComplexityEnabledBool       = $true
+                ReversibleEncEnabled        = $false
+            }
+        }
+
+        $tier3Settings = {
+            return [PSCustomObject]@{
+                Name                        = $Tier3PolicyName
+                Precedence                  = 30
+                MinPasswordLength           = 8
+                MaxPasswordAgeDays          = 60
+                MinPasswordAgeDays          = 1
+                PasswordHistoryCount        = 8
+                LockoutThreshold            = 5
+                LockoutDurationMins         = 30
+                ObservationWindowMins       = 30
+                ComplexityEnabledBool       = $true
+                ReversibleEncEnabled        = $false
+            }
+        }
+
+        # Retrieve recommended defaults for each tier
+        $t1 = & $tier1Settings
+        $t2 = & $tier2Settings
+        $t3 = & $tier3Settings
+
+        # Create or update each tier's policy
+        Ensure-PasswordPolicy @t1
+        Ensure-PasswordPolicy @t2
+        Ensure-PasswordPolicy @t3
+
+        # Link each policy to the specified group
+        Link-PolicyToGroup -PolicyName $t1.Name -GroupName $tier1Group
+        Link-PolicyToGroup -PolicyName $t2.Name -GroupName $tier2Group
+        Link-PolicyToGroup -PolicyName $t3.Name -GroupName $tier3Group
+
+        # Also forcibly link Domain Admins or Enterprise Admins to the TIER1 policy if requested
+        if ($AlwaysLinkDomainAdmins) {
+            Write-Host "Also linking Tier1 policy to built-in Domain Admins group." -ForegroundColor Magenta
+            Link-PolicyToGroup -PolicyName $t1.Name -GroupName "Domain Admins"
+        }
+        if ($AlwaysLinkEnterpriseAdmins) {
+            Write-Host "Also linking Tier1 policy to built-in Enterprise Admins group." -ForegroundColor Magenta
+            Link-PolicyToGroup -PolicyName $t1.Name -GroupName "Enterprise Admins"
+        }
+
+        Write-Host "\nAll 3-tier Fine-Grained Password Policies have been created/updated and linked to the specified groups." -ForegroundColor Cyan
+        Pause
+        Show-MainMenu
+        return
+    }
+}
+
 function Show-MainMenu {
     Clear-Host
 
@@ -1837,20 +2177,21 @@ function Show-MainMenu {
     Write-Host "  23) AD Recon Quiet Audit from Member Server or Desktop (Red Team)"  -ForegroundColor Cyan
     Write-Host ""
 
-    # -- Administration Scripts (24-27) --
+    # -- Administration Scripts (24-29) --
     Write-Host "==== AD Maintenance / FSMO / OU Protection ===="          -ForegroundColor Yellow
     Write-Host "  24) Move FSMO Roles"                                     -ForegroundColor Cyan
     Write-Host "  25) Protect OUs from Accidental Deletion"               -ForegroundColor Cyan
     Write-Host "  26) Fix AD Time Settings on Domain Controllers"          -ForegroundColor Cyan
     Write-Host "  27) Prepare AD for MDI Deployment"                       -ForegroundColor Cyan
+    Write-Host "  28) Setup Fine Grained Password Policies"                -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  28) Exit"
+    Write-Host "  29) Exit"
     Write-Host ""
 }
 
 do {
     Show-MainMenu
-    $choice = Read-Host "Enter selection (1-28)"
+    $choice = Read-Host "Enter selection (1-29)"
 
     switch ($choice) {
 
@@ -1888,8 +2229,9 @@ do {
         25 { Invoke-ProtectOUs }
         26 { Invoke-ADTimeFix }
         27 { Invoke-MDIEnvironment }
+        28 { Invoke-FineGrainedPasswordPolicySetup }
 
-        28 {
+        29 {
             Write-Host "Exiting..."
             break
         }
@@ -1899,6 +2241,6 @@ do {
             Pause
         }
     }
-} while ($choice -ne 28)
+} while ($choice -ne 29)
 
 Write-Host "Done, Thank you for using, we enjoy feedback and suggestions please drop us a line." -ForegroundColor Green
