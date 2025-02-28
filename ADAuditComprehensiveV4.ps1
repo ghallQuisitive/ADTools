@@ -1711,6 +1711,83 @@ function Configure-MDIEnvironment {
       return
 }
 
+function Invoke-FineGrainedPasswordPolicyAudit { 
+
+<# 
+.SYNOPSIS Checks all Fine-Grained Password Policies in AD (msDS-PasswordSettings objects) and reports on them. 
+.DESCRIPTION Enumerates each Fine-Grained Password Policy via Get-ADFineGrainedPasswordPolicy, 
+pulling out relevant properties such as precedence, min/max password age, complexity, and which groups/users it applies to. 
+Outputs results to the console and saves them to CSV. 
+
+.NOTES Requires the ActiveDirectory module (RSAT-AD-PowerShell) on the machine running the script. 
+
+#>
+[CmdletBinding()]
+param(
+    [string]$OutputFolder = "C:\ADHealthCheck\FineGrainedPasswordPolicy"
+)
+
+# Create an output directory if needed
+if (-not (Test-Path -Path $OutputFolder)) {
+    New-Item -Path $OutputFolder -ItemType Directory | Out-Null
+}
+
+$outputCsv = Join-Path $OutputFolder "FineGrainedPasswordPolicyReport.csv"
+
+Write-Host "=== Enumerating Fine-Grained Password Policies ===" -ForegroundColor Cyan
+
+try {
+    Import-Module ActiveDirectory -ErrorAction Stop
+} catch {
+    Write-Error "ActiveDirectory module not found or failed to import. $($_.Exception.Message)"
+    Pause
+    Show-MainMenu
+    return
+}
+  if (-not (Get-Command Get-ADFineGrainedPasswordPolicy -ErrorAction SilentlyContinue)) {
+        Write-Both "The Get-ADFineGrainedPasswordPolicy command was not found. Please ensure the ActiveDirectory module is installed and imported."
+        Pause
+        Show-MainMenu
+        return
+    }
+# Retrieve all fine-grained password policies
+$policies = Get-ADFineGrainedPasswordPolicy -Filter *
+
+if (-not $policies) {
+    Write-Host "No Fine-Grained Password Policies found in this domain." -ForegroundColor Yellow
+    return
+}
+
+$report = foreach ($p in $policies) {
+    # “AppliesTo” is a DN list of groups/users. We’ll join them as a string here.
+    $appliesToStr = $p.AppliesTo -join "; "
+
+    # Build a row of data for export
+    [PSCustomObject]@{
+        Name                       = $p.Name
+        Precedence                 = $p.Precedence
+        AppliesTo                  = $appliesToStr
+        MinPasswordLength          = $p.MinPasswordLength
+        MaxPasswordAge_Days        = if ($p.MaxPasswordAge) { $p.MaxPasswordAge.Days } else { $null }
+        LockoutThreshold           = $p.LockoutThreshold
+        LockoutDuration_Minutes    = if ($p.LockoutDuration) { $p.LockoutDuration.TotalMinutes } else { $null }
+        LockoutObservation_Minutes = if ($p.LockoutObservationWindow) { $p.LockoutObservationWindow.TotalMinutes } else { $null }
+        PasswordHistoryCount       = $p.PasswordHistoryCount
+        PasswordComplexityEnabled  = $p.PasswordComplexityEnabled
+        ReversibleEncryptionEnabled= $p.ReversibleEncryptionEnabled
+    }
+}
+
+Write-Host "`n== Fine-Grained Password Policies Summary ==" -ForegroundColor Green
+$report | Format-Table -AutoSize
+
+$report | Export-Csv -Path $outputCsv -NoTypeInformation
+Write-Host "`nReport exported to $outputCsv" -ForegroundColor Yellow
+Pause
+Show-MainMenu
+return
+}
+
 function Show-MainMenu {
     Clear-Host
 
