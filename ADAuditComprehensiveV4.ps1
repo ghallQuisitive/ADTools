@@ -1664,7 +1664,7 @@ function Invoke-MDIEnvironment {
             Install-Module -Name $moduleName -Force -ErrorAction Stop
         }
         catch {
-            Write-Error "Failed to install $moduleName: $_"
+            Write-Error "Failed to install $moduleName $_"
             return
         }
     }
@@ -1673,7 +1673,7 @@ function Invoke-MDIEnvironment {
         try {
             Update-Module -Name $moduleName -ErrorAction SilentlyContinue
         } catch {
-            Write-Warning "Could not update $moduleName: $_"
+            Write-Warning "Could not update $moduleName $_"
             Pause
         }
     }
@@ -1684,7 +1684,7 @@ function Invoke-MDIEnvironment {
         Write-Host "Imported module $moduleName successfully." -ForegroundColor Green
     }
     catch {
-        Write-Error "Failed to import $moduleName: $_"
+        Write-Error "Failed to import $moduleName $_"
         Pause
         return
     }
