@@ -1839,6 +1839,8 @@ function Invoke-FineGrainedPasswordPolicySetup {
     # Ensure the Active Directory module is loaded
     if (-not (Get-Module -ListAvailable -Name ActiveDirectory)) {
         Write-Warning "Active Directory PowerShell module not found. Please install RSAT-AD-PowerShell and try again."
+        Pause
+        Show-MainMenu
         return
     }
     Import-Module ActiveDirectory -ErrorAction Stop
