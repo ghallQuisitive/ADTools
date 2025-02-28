@@ -255,7 +255,7 @@ function Invoke-ReviewBaseSecurity {
     try {
         $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction Stop
     } catch {
-        Write-Both "Failed to retrieve OS information: $_"
+        Write-Both "Failed to retrieve OS information $_"
         Pause
         return
     }
@@ -263,7 +263,7 @@ function Invoke-ReviewBaseSecurity {
     try {
         $domainPolicy = Get-ADDefaultDomainPasswordPolicy -ErrorAction Stop
     } catch {
-        Write-Both "Failed to retrieve domain password policy: $_"
+        Write-Both "Failed to retrieve domain password policy $_"
         $domainPolicy = $null
     }
 
@@ -307,7 +307,7 @@ function Invoke-ReviewBaseSecurity {
 
     $result = [PSCustomObject]@{
         "Operating System"         = "$($osInfo.Caption), SP:$($osInfo.ServicePackMajorVersion).$($osInfo.ServicePackMinorVersion)"
-        "Last Boot "           = $osInfo.LastBootUp
+        "Last Boot "               = $osInfo.LastBootUp
         "Min Password Length"      = if ($domainPolicy) { $domainPolicy.MinPasswordLength } else { "N/A" }
         "Password History Count"   = if ($domainPolicy) { $domainPolicy.PasswordHistoryCount } else { "N/A" }
         "Max Password Age (Days)"  = if ($domainPolicy) { $domainPolicy.MaxPasswordAge.Days } else { "N/A" }
@@ -322,6 +322,8 @@ function Invoke-ReviewBaseSecurity {
     $result | Export-Csv -Path $OutputFile -NoTypeInformation
     Write-Both "Data exported to $OutputFile"
     Pause
+    Show-MainMenu
+    return
 }
 
 function Invoke-DCEventErrorSummary {
