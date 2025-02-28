@@ -1736,16 +1736,12 @@ Write-Host "=== Enumerating Fine-Grained Password Policies ===" -ForegroundColor
 try {
     Import-Module ActiveDirectory -ErrorAction Stop
 } catch {
-    Write-Error "ActiveDirectory module not found or failed to import. $($_.Exception.Message)"
-    Pause
-    Show-MainMenu
-    return
-}
-  if (-not (Get-Command Get-ADFineGrainedPasswordPolicy -ErrorAction SilentlyContinue)) {
+if (-not (Get-Command Get-ADFineGrainedPasswordPolicy -ErrorAction SilentlyContinue)) {
         Write-Both "The Get-ADFineGrainedPasswordPolicy command was not found. Please ensure the ActiveDirectory module is installed and imported."
         Pause
         Show-MainMenu
         return
+}
     }
 # Retrieve all fine-grained password policies
 $policies = Get-ADFineGrainedPasswordPolicy -Filter *
