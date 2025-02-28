@@ -1536,29 +1536,120 @@ function Invoke-LDAPSecurityCheck {
     }
     Pause
 }
+function Show-MDISubmenu {
+    do {
+        Write-Host "`nPlease choose from the following MDI options:" -ForegroundColor Cyan
+        Write-Host "1) Get MDI Configuration"
+        Write-Host "2) Generate MDI Configuration Report"
+        Write-Host "3) Create New MDI DSA (Default: MDIgMSAsvc01)"
+        Write-Host "4) Set MDI Configuration (Domain, All) for MDIgMSAsvc01 or user choice"
+        Write-Host "5) Test MDI Configuration (Domain, All)"
+        Write-Host "6) Test MDI DSA (Default: MDIgMSAsvc01) -Detailed"
+        Write-Host "7) Test MDI Sensor API Connection"
+        Write-Host "0) Return to previous menu"
+
+        $choice = Read-Host "Enter your selection (0 to return)"
+
+        switch ($choice) {
+            "1" {
+                Write-Host "`nRunning: Get-MDIConfiguration..." -ForegroundColor Yellow
+                try {
+                    $conf = Get-MDIConfiguration
+                    if ($conf) {
+                        $conf | Format-Table -AutoSize
+                    } else {
+                        Write-Host "No MDI configuration found." -ForegroundColor Red
+                    }
+                } catch {
+                    Write-Host "Error executing Get-MDIConfiguration: $_" -ForegroundColor Red
+                }
+            }
+            "2" {
+                Write-Host "`nRunning: New-MDIConfigurationReport..." -ForegroundColor Yellow
+                $outputFolder = Read-Host "Specify the folder path where you'd like the MDI report generated"
+                if (-not (Test-Path $outputFolder)) {
+                    try {
+                        New-Item -ItemType Directory -Path $outputFolder | Out-Null
+                    } catch {
+                        Write-Host "Could not create directory '$outputFolder': $_" -ForegroundColor Red
+                        break
+                    }
+                }
+                try {
+                    New-MDIConfigurationReport -OutputFolder $outputFolder -HtmlReportName "MDI_Config.html" -JsonReportName "MDI_Config.json"
+                    Write-Host "MDI configuration report generated at $outputFolder" -ForegroundColor Green
+                } catch {
+                    Write-Host "Error executing New-MDIConfigurationReport: $_" -ForegroundColor Red
+                }
+            }
+            "3" {
+                Write-Host "`nRunning: New-MDIDSA..." -ForegroundColor Yellow
+                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
+                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
+                    $svcAccount = "MDIgMSAsvc01"
+                }
+                try {
+                    New-MDIDSA -SamAccountName $svcAccount
+                    Write-Host "Successfully created MDI DSA '$svcAccount'." -ForegroundColor Green
+                } catch {
+                    Write-Host "Error executing New-MDIDSA: $_" -ForegroundColor Red
+                }
+            }
+            "4" {
+                Write-Host "`nRunning: Set-MDIConfiguration -Mode Domain -Configuration All..." -ForegroundColor Yellow
+                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
+                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
+                    $svcAccount = "MDIgMSAsvc01"
+                }
+                try {
+                    Set-MDIConfiguration -Mode Domain -Configuration All -Identity $svcAccount
+                    Write-Host "MDI Configuration set successfully for '$svcAccount'." -ForegroundColor Green
+                } catch {
+                    Write-Host "Error executing Set-MDIConfiguration: $_" -ForegroundColor Red
+                }
+            }
+            "5" {
+                Write-Host "`nRunning: Test-MDIConfiguration -Mode Domain -Configuration All..." -ForegroundColor Yellow
+                try {
+                    $testResults = Test-MDIConfiguration -Mode Domain -Configuration All
+                    $testResults | Format-Table -AutoSize
+                } catch {
+                    Write-Host "Error executing Test-MDIConfiguration: $_" -ForegroundColor Red
+                }
+            }
+            "6" {
+                Write-Host "`nRunning: Test-MDIDSA -Detailed..." -ForegroundColor Yellow
+                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
+                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
+                    $svcAccount = "MDIgMSAsvc01"
+                }
+                try {
+                    $dsaTest = Test-MDIDSA -Identity $svcAccount -Detailed
+                    $dsaTest | Format-List
+                } catch {
+                    Write-Host "Error executing Test-MDIDSA: $_" -ForegroundColor Red
+                }
+            }
+            "7" {
+                Write-Host "`nRunning: Test-MDISensorApiConnection..." -ForegroundColor Yellow
+                try {
+                    $apiResult = Test-MDISensorApiConnection
+                    $apiResult | Format-List
+                } catch {
+                    Write-Host "Error executing Test-MDISensorApiConnection: $_" -ForegroundColor Red
+                }
+            }
+            "0" {
+                Write-Host "Exiting MDI submenu..." -ForegroundColor Cyan
+            }
+            default {
+                Write-Host "Invalid choice, please try again." -ForegroundColor Red
+            }
+        }
+    } while ($choice -ne '0')
+}
+
 function Invoke-MDIEnvironment {
-    <#
-    .SYNOPSIS
-        Presents a menu to run key DefenderForIdentity commands.
-
-    .DESCRIPTION
-        Ensures that the DefenderForIdentity module is installed or updated.
-        Then it displays a menu with options for running:
-            - Get-MDIConfiguration
-            - New-MDIConfigurationReport
-            - New-MDIDSA
-            - Set-MDIConfiguration -Mode Domain -Configuration All -Identity MDIgMSAsvc01 (or user-specified)
-            - Test-MDIConfiguration -Mode Domain -Configuration All
-            - Test-MDIDSA -Identity "MDIgMSAsvc01" (or user-specified) -Detailed
-            - Test-MDISensorApiConnection
-        Lets the user pick from a menu to execute each command, optionally
-        prompting for a service account name.
-
-    .EXAMPLE
-        PS> Configure-MDIEnvironment
-        # Displays the menu and prompts user for input.
-    #>
-
     [CmdletBinding()]
     param()
 
@@ -1573,7 +1664,7 @@ function Invoke-MDIEnvironment {
             Install-Module -Name $moduleName -Force -ErrorAction Stop
         }
         catch {
-            Write-Error "Failed to install $moduleName $_"
+            Write-Error "Failed to install $moduleName: $_"
             return
         }
     }
@@ -1582,7 +1673,7 @@ function Invoke-MDIEnvironment {
         try {
             Update-Module -Name $moduleName -ErrorAction SilentlyContinue
         } catch {
-            Write-Warning "Could not update $moduleName $_"
+            Write-Warning "Could not update $moduleName: $_"
             Pause
         }
     }
@@ -1593,127 +1684,20 @@ function Invoke-MDIEnvironment {
         Write-Host "Imported module $moduleName successfully." -ForegroundColor Green
     }
     catch {
-        Write-Error "Failed to import $moduleName after installation $_"
+        Write-Error "Failed to import $moduleName: $_"
         Pause
         return
     }
 
     Write-Host "`nWelcome to the Microsoft Defender for Identity Configuration Menu." -ForegroundColor Cyan
 
-    do {
-        Write-Host "`nPlease choose from the following options:" -ForegroundColor Cyan
-        Write-Host "1) Get MDI Configuration"
-        Write-Host "2) Generate MDI Configuration Report"
-        Write-Host "3) Create New MDI DSA (Default: MDIgMSAsvc01)"
-        Write-Host "4) Set MDI Configuration (Domain, All) for MDIgMSAsvc01 or user choice"
-        Write-Host "5) Test MDI Configuration (Domain, All)"
-        Write-Host "6) Test MDI DSA (Default: MDIgMSAsvc01) -Detailed"
-        Write-Host "7) Test MDI Sensor API Connection"
-        Write-Host "0) Exit"
+    # Invoke the encapsulated MDI submenu
+    Show-MDISubmenu
 
-        $choice = Read-Host "Enter your selection (0 to exit)"
-
-        switch ($choice) {
-            "1" {
-                Write-Host "`nRunning: Get-MDIConfiguration..." -ForegroundColor Yellow
-                try {
-                    $conf = Get-MDIConfiguration
-                    if ($conf) {
-                        $conf | Format-Table -AutoSize
-                    } else {
-                        Write-Host "No MDI configuration found or command returned nothing." -ForegroundColor Red
-                    }
-                } catch {
-                    Write-Host "Error executing Get-MDIConfiguration $_" -ForegroundColor Red
-                }
-            }
-            "2" {
-                Write-Host "`nRunning: New-MDIConfigurationReport..." -ForegroundColor Yellow
-                $outputFolder = Read-Host "Specify the folder path where you'd like the MDI report generated"
-                if (-not (Test-Path $outputFolder)) {
-                    try {
-                        New-Item -ItemType Directory -Path $outputFolder | Out-Null
-                    } catch {
-                        Write-Host "Could not create directory '$outputFolder' $_" -ForegroundColor Red
-                        break
-                    }
-                }
-                try {
-                    New-MDIConfigurationReport -OutputFolder $outputFolder -HtmlReportName "MDI_Config.html" -JsonReportName "MDI_Config.json"
-                    Write-Host "MDI configuration report generated at $outputFolder" -ForegroundColor Green
-                } catch {
-                    Write-Host "Error executing New-MDIConfigurationReport $_" -ForegroundColor Red
-                }
-            }
-            "3" {
-                Write-Host "`nRunning: New-MDIDSA..." -ForegroundColor Yellow
-                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
-                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
-                    $svcAccount = "MDIgMSAsvc01"
-                }
-                try {
-                    New-MDIDSA -SamAccountName $svcAccount
-                    Write-Host "Successfully created MDI DSA '$svcAccount'." -ForegroundColor Green
-                } catch {
-                    Write-Host "Error executing New-MDIDSA $_" -ForegroundColor Red
-                }
-            }
-            "4" {
-                Write-Host "`nRunning: Set-MDIConfiguration -Mode Domain -Configuration All..." -ForegroundColor Yellow
-                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
-                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
-                    $svcAccount = "MDIgMSAsvc01"
-                }
-                try {
-                    Set-MDIConfiguration -Mode Domain -Configuration All -Identity $svcAccount
-                    Write-Host "MDI Configuration set successfully for '$svcAccount'." -ForegroundColor Green
-                } catch {
-                    Write-Host "Error executing Set-MDIConfiguration $_" -ForegroundColor Red
-                }
-            }
-            "5" {
-                Write-Host "`nRunning: Test-MDIConfiguration -Mode Domain -Configuration All..." -ForegroundColor Yellow
-                try {
-                    $testResults = Test-MDIConfiguration -Mode Domain -Configuration All
-                    $testResults | Format-Table -AutoSize
-                } catch {
-                    Write-Host "Error executing Test-MDIConfiguration $_" -ForegroundColor Red
-                }
-            }
-            "6" {
-                Write-Host "`nRunning: Test-MDIDSA -Detailed..." -ForegroundColor Yellow
-                $svcAccount = Read-Host "Enter the MDI service account name (press ENTER to use default 'MDIgMSAsvc01')"
-                if ([string]::IsNullOrWhiteSpace($svcAccount)) {
-                    $svcAccount = "MDIgMSAsvc01"
-                }
-                try {
-                    $dsaTest = Test-MDIDSA -Identity $svcAccount -Detailed
-                    $dsaTest | Format-List
-                } catch {
-                    Write-Host "Error executing Test-MDIDSA $_" -ForegroundColor Red
-                }
-            }
-            "7" {
-                Write-Host "`nRunning: Test-MDISensorApiConnection..." -ForegroundColor Yellow
-                try {
-                    $apiResult = Test-MDISensorApiConnection
-                    $apiResult | Format-List
-                } catch {
-                    Write-Host "Error executing Test-MDISensorApiConnection $_" -ForegroundColor Red
-                }
-            }
-            "0" {
-                Write-Host "Exiting..." -ForegroundColor Cyan
-            }
-            default {
-                Write-Host "Invalid choice, please try again." -ForegroundColor Red
-            }
-        }
-    } while ($choice -ne '0')
-    Pause
-    Show-MainMenu
+    # Optionally, return to a higher-level menu or simply exit
     return
 }
+
 
 function Invoke-FineGrainedPasswordPolicyAudit { 
 
